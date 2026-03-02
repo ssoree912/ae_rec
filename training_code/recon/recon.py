@@ -2,17 +2,34 @@ from PIL import Image
 import torch
 from tqdm import tqdm
 from diffusers import StableDiffusionXLImg2ImgPipeline, DiffusionPipeline, DDIMScheduler, AutoPipelineForText2Image, AutoencoderKL, AutoPipelineForImage2Image
-from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img import (
-    retrieve_latents,
-)
 from diffusers import StableDiffusion3Pipeline
 import torchvision.transforms as transforms
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def retrieve_latents_compat(encoder_output, generator=None):
+    # Compatibility helper for multiple diffusers versions.
+    if hasattr(encoder_output, "latent_dist"):
+        latent_dist = encoder_output.latent_dist
+        if hasattr(latent_dist, "sample"):
+            try:
+                return latent_dist.sample(generator=generator)
+            except TypeError:
+                return latent_dist.sample()
+        if hasattr(latent_dist, "mode"):
+            return latent_dist.mode()
+    if hasattr(encoder_output, "latents"):
+        return encoder_output.latents
+    if isinstance(encoder_output, (tuple, list)):
+        return encoder_output[0]
+    return encoder_output
+
+
 def reconstruct_simple(x, ae, seed, steps=None, tools=None):
     decode_dtype = ae.dtype
     generator = torch.Generator().manual_seed(seed)
     x = x.to(dtype=ae.dtype) * 2.0 - 1.0
-    latents = retrieve_latents(ae.encode(x), generator=generator)
+    latents = retrieve_latents_compat(ae.encode(x), generator=generator)
 
     reconstructions = ae.decode(
                         latents.to(decode_dtype), return_dict=False

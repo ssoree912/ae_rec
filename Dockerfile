@@ -30,7 +30,9 @@ RUN conda install -y -n base -c conda-forge mamba \
 WORKDIR /workspace/AlignedForensics
 
 COPY environment.yml /tmp/environment.yml
-RUN sed '/^prefix:/d' /tmp/environment.yml > /tmp/environment.docker.yml
+RUN sed '/^prefix:/d' /tmp/environment.yml > /tmp/environment.docker.yml \
+    && sed -i -E '/^[[:space:]]*-[[:space:]]*(openssl|cryptography)=/d' /tmp/environment.docker.yml \
+    && sed -i -E 's/^([[:space:]]*-[[:space:]]*[^=[:space:]]+=[^=[:space:]]+)=.*/\1/' /tmp/environment.docker.yml
 
 RUN mamba env create -n DMIDetection -f /tmp/environment.docker.yml \
     && conda clean -afy
