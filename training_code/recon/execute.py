@@ -50,8 +50,9 @@ def save_images(images_tensor, input_path, names):
 
 
 
-def create_dataloader(image_folder, batch_size=32, shuffle=True, num_workers=2):
+def create_dataloader(image_folder, batch_size=32, shuffle=True, num_workers=2, image_size=256):
     transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
         transforms.ToTensor(),
     ])
 
@@ -78,9 +79,16 @@ def main():
     parser.add_argument('--shuffle', action='store_true', help='Whether to shuffle the data in the DataLoader.')
     parser.add_argument('--steps', type=int, default=None, help='Number of backward steps in DDIM inversion')
     parser.add_argument('--num_workers', type=int, default=2, help='Number of workers for DataLoader.')
+    parser.add_argument('--image_size', type=int, default=256, help='Resize input images to a fixed size before batching.')
     args = parser.parse_args()
     seed = 42
-    dataloader = create_dataloader(args.input_folder, batch_size=args.batch_size, shuffle=args.shuffle, num_workers=args.num_workers)
+    dataloader = create_dataloader(
+        args.input_folder,
+        batch_size=args.batch_size,
+        shuffle=args.shuffle,
+        num_workers=args.num_workers,
+        image_size=args.image_size,
+    )
 
     ae = get_vae(repo_id=args.repo_id).to(device)
     tools = None
@@ -90,6 +98,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

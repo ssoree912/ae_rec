@@ -1,8 +1,7 @@
 from PIL import Image
 import torch
 from tqdm import tqdm
-from diffusers import StableDiffusionXLImg2ImgPipeline, DiffusionPipeline, DDIMScheduler, AutoPipelineForText2Image, AutoencoderKL, AutoPipelineForImage2Image
-from diffusers import StableDiffusion3Pipeline
+from diffusers import DiffusionPipeline
 import torchvision.transforms as transforms
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -43,6 +42,7 @@ def get_vae(repo_id, return_full=False):
         pipe = DiffusionPipeline.from_pretrained("CompVis/ldm-text2im-large-256", cache_dir="weights")
         return pipe.vqvae
     elif 'stable-diffusion-3' in repo_id:
+        from diffusers import StableDiffusion3Pipeline
         pipe = StableDiffusion3Pipeline.from_pretrained("stabilityai/stable-diffusion-3-medium-diffusers", torch_dtype=torch.float16,cache_dir='weights')
         return pipe.vae
         #pipe = pipe.to("cuda")
