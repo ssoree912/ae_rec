@@ -119,8 +119,45 @@ def create_dataloader(opt, subdir='.', is_train=True):
     dataroot = os.path.join(opt.dataroot, subdir)
     if (opt.data_cap is not None or opt.batched_syncing) and is_train:
         transform = make_processing(opt)
-        dataset = CapDataset(root_dir=dataroot, data_cap=opt.data_cap,transform=transform,batched_syncing=opt.batched_syncing,use_inversions=opt.use_inversions,seed=opt.seed)
-        dataset = torch.utils.data.ConcatDataset([dataset])
+        # Support both layouts:
+        # 1) <split>/0_real, <split>/1_fake
+        # 2) <split>/<domain>/0_real, <split>/<domain>/1_fake (README layout)
+        if os.path.isdir(os.path.join(dataroot, '0_real')):
+            datasets = [
+                CapDataset(
+                    root_dir=dataroot,
+                    data_cap=opt.data_cap,
+                    transform=transform,
+                    batched_syncing=opt.batched_syncing,
+                    use_inversions=opt.use_inversions,
+                    seed=opt.seed,
+                )
+            ]
+        else:
+            sub_roots = []
+            for name in sorted(os.listdir(dataroot)):
+                root = os.path.join(dataroot, name)
+                if not os.path.isdir(root):
+                    continue
+                if os.path.isdir(os.path.join(root, '0_real')) and os.path.isdir(os.path.join(root, '1_fake')):
+                    sub_roots.append(root)
+            if len(sub_roots) == 0:
+                raise FileNotFoundError(
+                    f"No paired folders found under {dataroot}. "
+                    "Expected either <split>/0_real+1_fake or <split>/<domain>/0_real+1_fake."
+                )
+            datasets = [
+                CapDataset(
+                    root_dir=root,
+                    data_cap=opt.data_cap,
+                    transform=transform,
+                    batched_syncing=opt.batched_syncing,
+                    use_inversions=opt.use_inversions,
+                    seed=opt.seed,
+                )
+                for root in sub_roots
+            ]
+        dataset = torch.utils.data.ConcatDataset(datasets)
     else:
         dataset = get_dataset(opt, dataroot)
     data_loader = torch.utils.data.DataLoader(
