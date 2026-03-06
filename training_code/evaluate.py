@@ -42,7 +42,8 @@ def evaluate(name, model, transform, batch_size, device, csv_input, csv_output):
 
             if (len(batch_id) >= batch_size) or (index==last_index): 
                 batch_img = torch.stack(batch_img, 0)
-                out_tens = model(batch_img.to(device)).cpu().numpy()[:, -1]
+                out_tens, _ = model(batch_img.to(device))
+                out_tens = out_tens.cpu().numpy()[:, -1]
                 while len(out_tens.shape) > 1:
                     out_tens = np.mean(out_tens, -1)
 
