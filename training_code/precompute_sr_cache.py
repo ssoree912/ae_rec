@@ -12,6 +12,7 @@ from networks.models.sr_modules import BasicSRProcessor
 VALID_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 DEFAULT_SPLITS = ("train", "val", "test")
 DEFAULT_CLASSES = ("0_real", "1_fake", "real", "fake", "nature", "ai")
+DEFAULT_REAL_NAMES = ("0_real", "real", "nature")
 
 
 def parse_args():
@@ -79,6 +80,13 @@ def parse_args():
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--max_items", type=int, default=None)
     parser.add_argument("--log_every", type=int, default=100)
+    parser.add_argument("--only_real", action="store_true", help="Process real-class images only")
+    parser.add_argument(
+        "--real_names",
+        nargs="+",
+        default=list(DEFAULT_REAL_NAMES),
+        help="Folder names regarded as real class when --only_real is used",
+    )
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--skip_empty", action="store_true")
     return parser.parse_args()
@@ -96,6 +104,10 @@ def list_images(root: Path):
         if p.is_file() and p.suffix.lower() in VALID_EXTS:
             paths.append(p)
     return sorted(paths)
+
+
+def get_real_name_set(args):
+    return {x.strip().lower() for x in args.real_names if x and x.strip()}
 
 
 def unique_jobs(jobs):
@@ -127,9 +139,12 @@ def build_jobs_images_original(args):
         raise FileNotFoundError(f"Source folder not found: {src_base}")
 
     domain_filter = set(args.domains) if args.domains else None
+    real_names = get_real_name_set(args)
     jobs = []
     for d in sorted(src_base.iterdir()):
         if not d.is_dir():
+            continue
+        if args.only_real and d.name.lower() not in real_names:
             continue
         if domain_filter is not None and d.name not in domain_filter:
             continue
@@ -146,7 +161,17 @@ def build_jobs_split_class(args):
     src_base = Path(args.input_root).resolve() if args.input_root else dataset_root
     out_base = Path(args.output_root).resolve() if args.output_root else (dataset_root / "sr_cache")
 
-    class_names = set(args.classes)
+    real_names = get_real_name_set(args)
+    classes = list(args.classes)
+    if args.only_real:
+        classes = [c for c in classes if c.lower() in real_names]
+        if not classes:
+            raise ValueError(
+                "No real classes left after --only_real filtering. "
+                f"classes={args.classes}, real_names={args.real_names}"
+            )
+
+    class_names = set(classes)
     domain_filter = set(args.domains) if args.domains else None
     jobs = []
     for split in args.splits:
@@ -155,7 +180,7 @@ def build_jobs_split_class(args):
             continue
 
         # Pattern A: <split>/<class>
-        for cls in args.classes:
+        for cls in classes:
             cls_dir = split_dir / cls
             if cls_dir.is_dir():
                 jobs.append((cls_dir, out_base / split / cls))
@@ -170,7 +195,7 @@ def build_jobs_split_class(args):
                 continue
             if domain_filter is not None and domain_dir.name not in domain_filter:
                 continue
-            for cls in args.classes:
+            for cls in classes:
                 cls_dir = domain_dir / cls
                 if cls_dir.is_dir():
                     jobs.append((cls_dir, out_base / split / domain_dir.name / cls))
@@ -216,12 +241,24 @@ def tensor_to_uint8_image(t: torch.Tensor):
     return arr
 
 
+def is_real_path(src_path: Path, input_root: Path, real_names):
+    # If the input root itself is a real folder, accept all files beneath it.
+    if input_root.name.lower() in real_names:
+        return True
+    rel = src_path.relative_to(input_root)
+    dir_parts = [x.lower() for x in rel.parts[:-1]]
+    return any(part in real_names for part in dir_parts)
+
+
 def run_job(input_root: Path, output_root: Path, sr: BasicSRProcessor, device: str, args):
     if not input_root.exists():
         raise FileNotFoundError(f"input_root does not exist: {input_root}")
     output_root.mkdir(parents=True, exist_ok=True)
 
     paths = list_images(input_root)
+    if args.only_real:
+        real_names = get_real_name_set(args)
+        paths = [p for p in paths if is_real_path(p, input_root, real_names)]
     if args.max_items is not None:
         paths = paths[: args.max_items]
     if not paths:
@@ -304,4 +341,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
