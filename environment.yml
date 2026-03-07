@@ -12,6 +12,7 @@ dependencies:
   - pytorch-cuda=11.7
   - intel-openmp
   - mkl=2023.1.0
+  - setuptools
   - pip
   - pip:
       - -r requirements.txt

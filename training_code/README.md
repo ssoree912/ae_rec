@@ -70,6 +70,44 @@ By default the code creates a folder called checkpoints in the current directory
 ## Shaders experiments
 The shaders dataset and reconstructions that we train on can be found [here](https://drive.google.com/file/d/1C6hTqXpsLlZV8GCLVvZwJtqCvfn-BLS0/view?usp=sharing). We use the same validation set as used in the other expriments, we compute the evaluation threshold on a random subset of 5000 real and fake images taken from the validation data. 
 
+## SR + Rectified + Delta pipeline
+
+This repo also supports a real-only rectified pipeline:
+
+1. Build SR cache for train/valid (already provided by `precompute_sr_cache.py`).
+2. Train a rectifier only on real train images:
+
+```
+CUDA_VISIBLE_DEVICES=0 python train_rectifier.py \
+  --real_root /path/to/dataset/train/0_real \
+  --sr_root /path/to/sr_cache/train/0_real \
+  --save_path /path/to/checkpoints/rectifier_best.pth \
+  --image_size 256 --batch_size 32 --epochs 10
+```
+
+3. Precompute delta cache for both real and fake:
+
+```
+CUDA_VISIBLE_DEVICES=0 python precompute_delta_cache.py \
+  --dataset_root /path/to/dataset \
+  --sr_root /path/to/sr_cache \
+  --output_root /path/to/delta_cache \
+  --rectifier_ckpt /path/to/checkpoints/rectifier_best.pth \
+  --splits train valid \
+  --classes 0_real 1_fake
+```
+
+4. Train detector on delta cache with the existing training command by setting:
+
+```
+--dataroot /path/to/delta_cache
+```
+
+Notes:
+- Rectifier is trained on real-only pairs `(x, SR(D(x)))`.
+- Delta is computed as `|SR(x) - R(SR(x))|`.
+- This keeps the same train/valid folder convention used in this repo.
+
 
 ## Citation
 If you find this code useful in your research, consider citing our work:

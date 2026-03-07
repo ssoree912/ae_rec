@@ -12,6 +12,8 @@ opencv-python-headless==4.9.0.80
 regex==2023.12.25
 safetensors==0.4.3
 seaborn==0.12.2
+setuptools==69.5.1
+packaging==24.2
 tensorboardX==2.6.2.2
 tokenizers==0.13.3
 transformers==4.33.3
