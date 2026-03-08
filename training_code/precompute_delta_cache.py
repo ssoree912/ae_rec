@@ -12,7 +12,7 @@ from rectified.rectifier_unet import load_rectifier
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Precompute delta = |SR(x) - R(SR(x))| cache")
+    p = argparse.ArgumentParser(description="Precompute delta cache")
     p.add_argument("--dataset_root", type=str, required=True)
     p.add_argument("--sr_root", type=str, required=True)
     p.add_argument("--output_root", type=str, required=True)
@@ -28,6 +28,18 @@ def parse_args():
     p.add_argument("--overwrite", action="store_true")
     p.add_argument("--max_items", type=int, default=None)
     p.add_argument("--log_every", type=int, default=100)
+    p.add_argument(
+        "--delta_mode",
+        type=str,
+        default="sr_minus_rectified",
+        choices=["sr_minus_rectified", "orig_minus_rectified"],
+        help="sr_minus_rectified: SR(x)-R(SR(x)), orig_minus_rectified: x-R(SR(x))",
+    )
+    p.add_argument(
+        "--no_abs",
+        action="store_true",
+        help="Disable absolute value. Default is abs(delta) for image cache export.",
+    )
     p.add_argument("--dry_run", action="store_true")
     return p.parse_args()
 
@@ -62,15 +74,16 @@ class SRJobDataset(Dataset):
             if sr_path is None:
                 continue
             out_path = build_output_path(src_path, input_root, output_root, save_ext)
-            self.items.append((sr_path, out_path))
+            self.items.append((src_path, sr_path, out_path))
 
     def __len__(self):
         return len(self.items)
 
     def __getitem__(self, idx):
-        sr_path, out_path = self.items[idx]
+        src_path, sr_path, out_path = self.items[idx]
+        x = self.tf(Image.open(src_path).convert("RGB"))
         x_sr = self.tf(Image.open(sr_path).convert("RGB"))
-        return x_sr, str(out_path)
+        return x, x_sr, str(out_path)
 
 
 def save_delta_batch(delta, out_paths, save_ext, jpg_quality):
@@ -109,12 +122,14 @@ def run_job(input_root, sr_root, out_root, rectifier, args, device):
 
     print(f"[Delta] input={input_root} sr={sr_root} out={out_root} count={len(ds)}")
     seen = 0
-    for x_sr, out_paths in tqdm(loader, desc=str(input_root), leave=False):
+    for x, x_sr, out_paths in tqdm(loader, desc=str(input_root), leave=False):
         to_save = []
+        to_save_x = []
         to_save_paths = []
         for j, out in enumerate(out_paths):
             if (not args.overwrite) and Path(out).exists():
                 continue
+            to_save_x.append(x[j])
             to_save.append(x_sr[j])
             to_save_paths.append(out)
 
@@ -124,10 +139,19 @@ def run_job(input_root, sr_root, out_root, rectifier, args, device):
                 print(f"[{seen}/{len(ds)}] all skipped (exists)")
             continue
 
-        batch = torch.stack(to_save, dim=0).to(device, non_blocking=True)
+        batch_sr = torch.stack(to_save, dim=0).to(device, non_blocking=True)
+        batch_x = torch.stack(to_save_x, dim=0).to(device, non_blocking=True)
         with torch.no_grad():
-            x_hat = rectifier(batch)
-            delta = torch.abs(batch - x_hat)
+            x_hat = rectifier(batch_sr)
+            if args.delta_mode == "sr_minus_rectified":
+                delta = batch_sr - x_hat
+            elif args.delta_mode == "orig_minus_rectified":
+                delta = batch_x - x_hat
+            else:
+                raise ValueError(f"Unsupported delta_mode: {args.delta_mode}")
+
+            if args.use_abs:
+                delta = torch.abs(delta)
         save_delta_batch(delta, to_save_paths, args.save_ext, args.jpg_quality)
 
         seen += len(out_paths)
@@ -137,6 +161,7 @@ def run_job(input_root, sr_root, out_root, rectifier, args, device):
 
 def main():
     args = parse_args()
+    args.use_abs = not args.no_abs
     dataset_root = Path(args.dataset_root).resolve()
     sr_root = Path(args.sr_root).resolve()
     output_root = Path(args.output_root).resolve()
@@ -169,4 +194,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
