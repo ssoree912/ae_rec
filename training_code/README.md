@@ -113,6 +113,25 @@ CUDA_VISIBLE_DEVICES=0 python precompute_delta_cache.py \
 --dataroot /path/to/delta_cache
 ```
 
+5. (Optional) Train a dedicated image-space delta classifier checkpoint:
+
+```
+CUDA_VISIBLE_DEVICES=0 python train_image_delta_classifier.py \
+  --data_root /path/to/train_data \
+  --sr_cache_root /path/to/train_sr_cache \
+  --rect_ckpt /path/to/checkpoints/rectifier_best.pth \
+  --name coco_ae_rectified_origin_delta \
+  --checkpoints_dir /workspace/training_code/checkpoints \
+  --rect_input sr \
+  --delta_mode orig_minus_rectified \
+  --use_abs \
+  --batch_size 32 --epochs 10 --amp
+```
+
+Save-path rule:
+- Use `--name` to save to `<checkpoints_dir>/<name>/model_epoch_best.pth`.
+- Or pass `--save_path /absolute/path/model_epoch_best.pth` to override.
+
 Notes:
 - Rectifier is trained on real-only pairs `(x, SR(D(x)))`.
 - Delta is computed as `|SR(x) - R(SR(x))|`.

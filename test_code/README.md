@@ -33,10 +33,10 @@ python eval.py --real {path_to_real_csv} --fake {path_to_fake_csv} --ix {number_
 We also provide the code to recreate the resolution/webp-compression diagrams given in the paper. Examples can be found in the ```sweep.sh``` script. 
 
 ## Image-space Delta experiments
-Additional scripts are provided for SR/Rectified image-space delta pipelines:
+For SR/Rectified delta experiments:
 
-- `train_image_delta_classifier.py`
-- `eval_image_delta_classifier.py`
+- Training: use `/workspace/training_code/train_image_delta_classifier.py`
+- Evaluation: use `eval_image_delta_classifier.py` in this folder.
 
 Supported delta definitions:
 
