@@ -17,6 +17,7 @@ class SRBinaryPairDataset(Dataset):
     Supported layouts under data_root:
       - real / fake
       - nature / ai
+      - 0_real / 1_fake
       - real + multiple fake domain dirs (kandinsky, sd, mj, ...)
     """
 
@@ -35,13 +36,17 @@ class SRBinaryPairDataset(Dataset):
         if not real_dir.is_dir():
             real_dir = self.data_root / "nature"
         if not real_dir.is_dir():
-            raise ValueError(f"Cannot find real/nature directory under {self.data_root}")
+            real_dir = self.data_root / "0_real"
+        if not real_dir.is_dir():
+            raise ValueError(f"Cannot find real/nature/0_real directory under {self.data_root}")
 
         if fake_dirs is None:
             auto_fake_dirs = []
             fake_dir = self.data_root / "fake"
             if not fake_dir.is_dir():
                 fake_dir = self.data_root / "ai"
+            if not fake_dir.is_dir():
+                fake_dir = self.data_root / "1_fake"
             if fake_dir.is_dir():
                 auto_fake_dirs = [fake_dir]
             else:
@@ -104,4 +109,3 @@ class SRBinaryPairDataset(Dataset):
             x_sr = self.tf(Image.open(sr_path).convert("RGB"))
 
         return x, x_sr, torch.tensor(y, dtype=torch.float32), str(x_path)
-
