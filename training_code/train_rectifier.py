@@ -13,9 +13,16 @@ from rectified.rectifier_unet import RectifierUNet
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Train real-only rectifier R(SR(x)) -> x")
+    p = argparse.ArgumentParser(description="Train real-only rectifier")
     p.add_argument("--real_root", type=str, required=True, help="Path to train/0_real")
-    p.add_argument("--sr_root", type=str, required=True, help="Path to SR cache for train/0_real")
+    p.add_argument("--sr_root", type=str, default=None, help="Path to SR cache for train/0_real")
+    p.add_argument(
+        "--input_source",
+        type=str,
+        default="sr",
+        choices=["sr", "orig"],
+        help="Rectifier input: 'sr' trains R(SR(x))->x, 'orig' trains R(x)->x.",
+    )
     p.add_argument("--save_path", type=str, required=True, help="Checkpoint output path")
     p.add_argument("--image_size", type=int, default=256)
     p.add_argument("--batch_size", type=int, default=32)
@@ -42,6 +49,7 @@ def build_loaders(args):
         real_root=args.real_root,
         sr_root=args.sr_root,
         image_size=args.image_size,
+        input_source=args.input_source,
     )
     n_val = max(1, int(round(len(ds) * args.val_ratio)))
     n_train = len(ds) - n_val
@@ -95,7 +103,10 @@ def main():
     best_val = float("inf")
     os.makedirs(os.path.dirname(args.save_path) or ".", exist_ok=True)
 
-    print(f"[Rectifier] train_batches={len(train_loader)} val_batches={len(val_loader)} device={device}")
+    print(
+        f"[Rectifier] train_batches={len(train_loader)} val_batches={len(val_loader)} "
+        f"device={device} input_source={args.input_source}"
+    )
     for epoch in range(1, args.epochs + 1):
         model.train()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}/{args.epochs}")
@@ -138,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -85,6 +85,16 @@ CUDA_VISIBLE_DEVICES=0 python train_rectifier.py \
   --image_size 256 --batch_size 32 --epochs 10
 ```
 
+SR-free ablation (orig->orig identity rectifier) can be trained with:
+
+```
+CUDA_VISIBLE_DEVICES=0 python train_rectifier.py \
+  --real_root /path/to/dataset/train/0_real \
+  --input_source orig \
+  --save_path /path/to/checkpoints/rectifier_orig_best.pth \
+  --image_size 256 --batch_size 32 --epochs 10
+```
+
 3. Precompute delta cache for both real and fake:
 
 ```

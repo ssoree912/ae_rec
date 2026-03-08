@@ -80,6 +80,19 @@ def parse_args():
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--max_items", type=int, default=None)
     parser.add_argument("--log_every", type=int, default=100)
+    parser.add_argument("--reverse", action="store_true", help="Process images in reverse order.")
+    parser.add_argument(
+        "--stride",
+        type=int,
+        default=1,
+        help="Shard factor for parallel runs. Use with --offset (e.g., stride=2, offset=0/1).",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Shard index in [0, stride-1] used when --stride > 1.",
+    )
     parser.add_argument("--only_real", action="store_true", help="Process real-class images only")
     parser.add_argument(
         "--real_names",
@@ -255,10 +268,19 @@ def run_job(input_root: Path, output_root: Path, sr: BasicSRProcessor, device: s
         raise FileNotFoundError(f"input_root does not exist: {input_root}")
     output_root.mkdir(parents=True, exist_ok=True)
 
+    if args.stride < 1:
+        raise ValueError("--stride must be >= 1.")
+    if args.offset < 0 or args.offset >= args.stride:
+        raise ValueError("--offset must satisfy 0 <= offset < stride.")
+
     paths = list_images(input_root)
     if args.only_real:
         real_names = get_real_name_set(args)
         paths = [p for p in paths if is_real_path(p, input_root, real_names)]
+    if args.reverse:
+        paths = list(reversed(paths))
+    if args.stride > 1:
+        paths = paths[args.offset :: args.stride]
     if args.max_items is not None:
         paths = paths[: args.max_items]
     if not paths:
@@ -272,6 +294,7 @@ def run_job(input_root: Path, output_root: Path, sr: BasicSRProcessor, device: s
     print(f"[SR Cache] input_root={input_root}")
     print(f"[SR Cache] output_root={output_root}")
     print(f"[SR Cache] total_images={total}")
+    print(f"[SR Cache] reverse={args.reverse} stride={args.stride} offset={args.offset}")
 
     for i, src_path in enumerate(paths, start=1):
         out_path = build_output_path(src_path, input_root, output_root, args.save_ext)
