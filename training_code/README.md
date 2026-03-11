@@ -63,6 +63,34 @@ These details are provided in the bash script.
 
 ```
 
+## SR-only detector training (no Rectified)
+
+To test whether SR preprocessing alone helps the classifier, use the SR-only entrypoint:
+
+```
+CUDA_VISIBLE_DEVICES=0 python train_dmidetection_sr.py \
+  --name dmidetection_sr \
+  --sr_dataroot /path/to/sr_dataset_root \
+  --checkpoints_dir ./checkpoints \
+  --arch res50nodown \
+  --cropSize 96 --norm_type resnet \
+  --resize_size 256 --resize_ratio 0.75 \
+  --blur_sig 0.0,3.0 --cmp_method cv2,pil --cmp_qual 30,100 \
+  --resize_prob 0.2 --jitter_prob 0.8 --colordist_prob 0.2 \
+  --cutout_prob 0.2 --noise_prob 0.2 --blur_prob 0.5 \
+  --cmp_prob 0.5 --rot90_prob 1.0 \
+  --batch_size 512 --earlystop_epoch 5 --seed 14 \
+  --stay_positive clamp --fix_backbone --final_dropout 0.0 \
+  --batched_syncing --use_inversions
+```
+
+`--sr_dataroot` must contain `train/` and `valid/` splits with the same class/domain structure as the original dataset.
+You can also use the ready shell template:
+
+```
+./script_train_dmidetection_sr.sh
+```
+
 By default the code creates a folder called checkpoints in the current directory. If you want to change where the checkpoints folder is saved please add the following argument:
 ```
 --checkpoints_dir /path/to/weights/folder
