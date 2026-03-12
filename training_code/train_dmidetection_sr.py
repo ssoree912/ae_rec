@@ -10,8 +10,9 @@ try:
 except Exception:
     from torch.utils.tensorboard import SummaryWriter
 
+from utils import EarlyStopping
 from utils.dataset import add_dataloader_arguments, create_dataloader
-from utils.training import EarlyStopping, TrainingModel, add_training_arguments
+from utils.training import TrainingModel, add_training_arguments
 
 
 def parse_args():
