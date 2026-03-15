@@ -107,6 +107,7 @@ class TrainingModel(torch.nn.Module):
 
         self.opt = opt
         self.total_steps = 0
+        self.resume_epoch = 0
         self.save_dir = os.path.join(opt.checkpoints_dir, subdir)
         self.device = torch.device('cpu') if opt.no_cuda else torch.device('cuda:0')
         
@@ -223,6 +224,7 @@ class TrainingModel(torch.nn.Module):
             'model': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'total_steps': self.total_steps,
+            'epoch': epoch,
         }
 
         torch.save(state_dict, save_path)
@@ -242,6 +244,14 @@ class TrainingModel(torch.nn.Module):
             self.total_steps = state_dict['total_steps']
         except:
             self.total_steps = 0
+
+        try:
+            self.resume_epoch = int(state_dict['epoch'])
+        except:
+            try:
+                self.resume_epoch = int(epoch)
+            except:
+                self.resume_epoch = 0
 
         try:
             self.optimizer.load_state_dict(state_dict['optimizer'])

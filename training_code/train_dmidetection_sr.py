@@ -72,7 +72,7 @@ def main():
     writer = SummaryWriter(os.path.join(model.save_dir, "logs"))
     writer_loss_steps = max(1, len(train_data_loader) // 32)
     early_stopping = None
-    start_epoch = model.total_steps // max(1, len(train_data_loader))
+    start_epoch = model.resume_epoch if model.resume_epoch > 0 else model.total_steps // max(1, len(train_data_loader))
 
     for epoch in range(start_epoch, opt.num_epoches + 1):
         if epoch > start_epoch:
